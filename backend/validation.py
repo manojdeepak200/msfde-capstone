@@ -69,10 +69,20 @@ def check_completeness(extracted: dict, present_types: list[str]) -> list[dict]:
 
 
 def check_dates(extracted: dict) -> list[dict]:
-    # TODO 3a: the date of loss must agree across the claim form, the customer statement and
-    # any police report (CIP-CLM-200 section 2.1). Raise one DATE_MISMATCH finding per
-    # document that disagrees with the claim form, and put both dates in the evidence.
-    raise NotImplementedError("implement check_dates")
+    form = _as_date(_value(extracted, "claim_form", "date_of_loss"))
+    police = _as_date(_value(extracted, "police_report", "incident_date"))
+    statement = _as_date(_value(extracted, "customer_statement", "stated_date_of_loss"))
+    findings = []
+    for name, other in (("police_report", police), ("customer_statement", statement)):
+        if form and other and form != other:
+            findings.append(_finding(
+                "DATE_MISMATCH", CRITICAL,
+                f"The date of loss differs between the claim form ({form}) and the "
+                f"{name.replace('_', ' ')} ({other}); CIP-CLM-200 section 2.1 requires them to agree.",
+                [_ev("claim_form", "date_of_loss", str(form)),
+                 _ev(name, "date_of_loss", str(other))],
+            ))
+    return findings
 
 
 def check_vehicle_identifiers(extracted: dict) -> list[dict]:
@@ -94,11 +104,29 @@ def check_vehicle_identifiers(extracted: dict) -> list[dict]:
 
 
 def check_damage_consistency(extracted: dict, photo_assessments: list[dict]) -> list[dict]:
-    # TODO 3b: the damage location must be consistent across the claim form, the repair
-    # estimate, the customer statement and the photographs (CIP-CLM-200 section 2.3).
-    # Ignore values of "Not stated" and "Other". Raise DAMAGE_LOCATION_MISMATCH when the
-    # sources disagree, naming what each source says.
-    raise NotImplementedError("implement check_damage_consistency")
+    sources = {
+        "claim_form": _value(extracted, "claim_form", "damage_area"),
+        "repair_estimate": _value(extracted, "repair_estimate", "damage_area"),
+        "customer_statement": _value(extracted, "customer_statement", "stated_damage_area"),
+    }
+    for assessment in photo_assessments:
+        if assessment.get("damage_area") not in (None, "None visible"):
+            sources[f"photo:{assessment.get('file', 'unknown')}"] = assessment["damage_area"]
+            break
+
+    present = {d: str(v) for d, v in sources.items() if v and str(v) not in ("Not stated", "Other")}
+    if len(present) < 3:
+        return []
+    distinct = set(present.values())
+    if len(distinct) > 1:
+        return [_finding(
+            "DAMAGE_LOCATION_MISMATCH", CRITICAL,
+            "The damage location is not consistent across the evidence: "
+            + "; ".join(f"{d} says {v}" for d, v in present.items())
+            + " (CIP-CLM-200 section 2.3).",
+            [_ev(d, "damage_area", v) for d, v in present.items()],
+        )]
+    return []
 
 
 def check_cover_in_force(extracted: dict) -> list[dict]:
@@ -134,11 +162,25 @@ def check_authority_limit(extracted: dict) -> list[dict]:
 
 
 def check_estimate_against_photos(extracted: dict, photo_assessments: list[dict]) -> list[dict]:
-    # TODO 3c: compare the estimate total against the indicative band for the damage the
-    # photographs actually show (CIP-CLM-220 section 4, CIP-CLM-210 section 2.1).
-    # Allow a tolerance - a real estimate can exceed the band a little - then raise
-    # ESTIMATE_EVIDENCE_MISMATCH, citing the total and the photo band.
-    raise NotImplementedError("implement check_estimate_against_photos")
+    total = _as_float(_value(extracted, "repair_estimate", "total_amount"))
+    if total is None or not photo_assessments:
+        return []
+    ceilings = [c for c in (vision_band_ceiling(a) for a in photo_assessments) if c]
+    if not ceilings:
+        return []
+    ceiling = max(ceilings)
+    if total <= ceiling * 1.2:            # 20 percent tolerance
+        return []
+    worst = max(photo_assessments, key=lambda a: vision_band_ceiling(a) or 0)
+    return [_finding(
+        "ESTIMATE_EVIDENCE_MISMATCH", CRITICAL,
+        f"The estimate of ${total:,.2f} is well above the indicative range for the damage "
+        f"visible in the photographs (up to ${ceiling:,.0f} for {worst.get('severity')} "
+        f"{worst.get('damage_area','').lower()} damage: {worst.get('visible_damage','')}). "
+        f"See CIP-CLM-220 section 4 and CIP-CLM-210 section 2.1.",
+        [_ev("repair_estimate", "total_amount", total),
+         _ev(f"photo:{worst.get('file')}", "indicative_repair_band", worst.get("indicative_repair_band"))],
+    )]
 
 
 def vision_band_ceiling(assessment: dict) -> float | None:

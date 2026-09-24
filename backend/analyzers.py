@@ -13,27 +13,33 @@ from __future__ import annotations
 from typing import Any
 
 CLAIM_FORM: dict[str, Any] = {
-    # TODO 1: define the fields to extract from a Contoso motor claim form.
-    #
-    # The validation rules in validation.py and the required-document table in config.py
-    # need these values, so the schema has to cover every field they use:
-    #   claim_reference, policy_number, claimant_name, date_of_loss, incident_location,
-    #   loss_type, damage_area, vehicle_make, vehicle_model, vehicle_year, vin, plate,
-    #   police_reference, third_party_details, incident_summary
-    #
-    # Each field is {"type": ..., "method": ..., "description": ...} where
-    #   type   is "string", "date" or "number"
-    #   method is "extract"  - copy a value that appears in the document (gives confidence
-    #                          and a source span, which is what makes it auditable)
-    #             "classify" - choose from "enum"
-    #             "generate" - write a short summary
-    #
-    # Example:
-    #   "claim_reference": {"type": "string", "method": "extract",
-    #                       "description": "Claim reference such as CLM-2026-0431"},
-    #
-    # Watch out: if a rule needs a value your schema does not extract, the agent will
-    # correctly report it as missing evidence.
+    "claim_reference": {"type": "string", "method": "extract",
+                        "description": "Claim reference such as CLM-2026-0431"},
+    "policy_number": {"type": "string", "method": "extract"},
+    "claimant_name": {"type": "string", "method": "extract"},
+    "date_of_loss": {"type": "date", "method": "extract",
+                     "description": "Date of loss / date of the incident"},
+    "incident_location": {"type": "string", "method": "extract"},
+    "loss_type": {"type": "string", "method": "classify",
+                  "enum": ["Collision", "Theft", "Attempted theft", "Vandalism",
+                           "Weather", "Glass", "Other"]},
+    "damage_area": {"type": "string", "method": "classify",
+                    "enum": ["Front", "Rear", "Side", "Roof", "Glass", "Underbody",
+                             "Multiple", "Other"]},
+    "vehicle_make": {"type": "string", "method": "extract"},
+    "vehicle_model": {"type": "string", "method": "extract"},
+    "vehicle_year": {"type": "string", "method": "extract"},
+    "vin": {"type": "string", "method": "extract"},
+    "plate": {"type": "string", "method": "extract",
+              "description": "Registration plate"},
+    "police_reference": {"type": "string", "method": "extract",
+                         "description": "Police or crime reference; empty when not provided"},
+    # CIP-CLM-200 section 1 requires third-party details for a third-party collision, so the
+    # schema has to extract them - otherwise the agent correctly reports them as missing.
+    "third_party_details": {"type": "string", "method": "extract",
+                            "description": "Third party name, vehicle and insurer; empty when none reported"},
+    "incident_summary": {"type": "string", "method": "generate",
+                         "description": "One sentence describing what happened"},
 }
 
 POLICE_REPORT: dict[str, Any] = {

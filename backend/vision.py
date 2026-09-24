@@ -54,7 +54,21 @@ PHOTO_SCHEMA = {
 #   - map the visible damage to one of the indicative bands in CIP-CLM-220 section 4
 #     (read reference/policies/CIP-CLM-220 - the bands are in the table in section 4)
 INSTRUCTIONS = (
-    "TODO: write the photograph assessment instructions here."
+    "Assess the damage visible in this vehicle photograph only. Describe only what is actually "
+    "visible in the image. Do not infer cause, fault, driver behaviour, weather, road conditions, "
+    "or who is responsible. Do not guess at damage that is outside the frame or hidden by glare, "
+    "shadows, distance, or obstructions. If there is no visible damage, return 'None visible'. "
+    "Identify the affected area from the standard options: Front, Rear, Side, Roof, Glass, "
+    "Underbody, Multiple, or None visible. Choose the severity from: none, minor, moderate, "
+    "severe. In 'visible_damage', write a single sentence describing the actual damage seen, such as "
+    "'minor scuff and shallow scratch on the right side door' or 'no visible damage'. "
+    "Map the visible damage to the closest indicative repair band from CIP-CLM-220 section 4, using "
+    "only these values: 300-900, 600-1600, 1500-3200, 2500-7000, 3000-8000, or unknown. "
+    "Use the lower band if the visible damage is light and the higher band only when the damage is "
+    "clearly more extensive. Set 'panel_replacement_likely' to true only when a panel or bumper "
+    "cover appears likely to require replacement based on the visible damage, otherwise false. "
+    "In 'notes', add a brief caution that this is a visual assessment based only on the photograph, "
+    "not a causal determination or a full repair estimate."
 )
 
 
