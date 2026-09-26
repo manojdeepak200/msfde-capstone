@@ -82,6 +82,29 @@ def parse_claims_history(pdf_path: pathlib.Path) -> list[dict[str, Any]]:
     return [{"reference": r} for r in dict.fromkeys(rows)]
 
 
+def build_verification_queue(extracted: dict[str, Any], threshold: float = 0.8) -> list[dict[str, Any]]:
+    """Return the low-confidence values that matter enough to be confirmed by a handler."""
+    # The verification queue stops low-confidence, decision-critical facts from being
+    # ignored in the UI. These are the values that materially affect a claim review.
+    critical_fields = {"policy_number", "date_of_loss", "vin", "plate", "repairer_name",
+                       "total_amount", "damage_area", "police_reference", "incident_location"}
+    items: list[dict[str, Any]] = []
+    for doc_type, fields in (extracted or {}).items():
+        for field_name, field in (fields or {}).items():
+            confidence = field.get("confidence")
+            value = field.get("value")
+            if value in (None, "") or confidence is None or confidence >= threshold:
+                continue
+            if field_name in critical_fields or doc_type in {"claim_form", "policy_schedule"}:
+                items.append({
+                    "document": doc_type,
+                    "field": field_name,
+                    "value": value,
+                    "confidence": round(float(confidence), 3),
+                })
+    return items[:8]
+
+
 def process_claim(claim_dir: pathlib.Path, agent_name: str | None = None,
                   skip_agent: bool = False) -> dict[str, Any]:
     started = time.time()
@@ -125,6 +148,7 @@ def process_claim(claim_dir: pathlib.Path, agent_name: str | None = None,
     # ---- claims history, when supplied
     history_pdf = claim_dir / "claims-history.pdf"
     claims_history = parse_claims_history(history_pdf) if history_pdf.exists() else []
+    verification_items = build_verification_queue(extracted)
 
     # ---- validate
     findings = validation.run_all(extracted, present_types, photo_assessments, claims_history)
@@ -138,6 +162,7 @@ def process_claim(claim_dir: pathlib.Path, agent_name: str | None = None,
                       for doc, fields in extracted.items()},
         "photo_assessments": photo_assessments,
         "claims_history_count": len(claims_history),
+        "verification_items": verification_items,
         "findings": findings,
         "rule_recommendation": rule_recommendation,
     }
@@ -147,9 +172,20 @@ def process_claim(claim_dir: pathlib.Path, agent_name: str | None = None,
     if not skip_agent:
         review = claims_agent.review_claim(package, agent_name=agent_name)
 
+    # Basic cost and latency telemetry for operations reporting. This is a rough,
+    # explainable estimate used to compare processing options without making a claim decision.
+    cost_metrics = {
+        "document_calls": len(documents),
+        "photo_calls": len(photo_assessments),
+        "agent_calls": 0 if skip_agent else 1,
+        "estimated_cost_usd": round((len(documents) * 0.06) + (len(photo_assessments) * 0.04) + (0.4 if not skip_agent else 0), 2),
+        "elapsed_seconds": round(time.time() - started, 2),
+    }
+
     return {
         **package,
         "review": review,
+        "cost_metrics": cost_metrics,
         "elapsed_seconds": round(time.time() - started, 1),
     }
 

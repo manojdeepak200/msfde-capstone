@@ -219,6 +219,31 @@ def check_claim_frequency(claims_history: list[dict] | None) -> list[dict]:
     )]
 
 
+def check_unattended_vehicle_indicators(extracted: dict) -> list[dict]:
+    # Extend fraud detection beyond the core claim rules with the unattended-vehicle
+    # indicator described in CIP-CLM-210. This is an observation for referral, not a
+    # final allegation of fraud.
+    summary = ((extracted.get("claim_form") or {}).get("incident_summary") or {}).get("value") or ""
+    statement = ((extracted.get("customer_statement") or {}).get("stated_cause") or {}).get("value") or ""
+    police_reference = ((extracted.get("claim_form") or {}).get("police_reference") or {}).get("value") or ""
+    text = f"{summary} {statement}".lower()
+    if not any(token in text for token in ("parked", "unattended", "vehicle was left")):
+        return []
+    if not any(token in text for token in ("no note", "no witnesses", "without note", "nobody left a note")):
+        return []
+    if police_reference and str(police_reference).lower() not in {"not provided", "none reported", "not supplied", ""}:
+        return []
+    return [_finding(
+        "CIRCUMSTANCE_INDICATOR_UNATTENDED_VEHICLE", WARNING,
+        "The claim describes damage to an unattended vehicle with no witness, no note and no police reference, a circumstance indicator under CIP-CLM-210 section 2.2 that requires referral and human review.",
+        [
+            _ev("claim_form", "incident_summary", summary),
+            _ev("claim_form", "police_reference", police_reference),
+            _ev("customer_statement", "stated_cause", statement),
+        ],
+    )]
+
+
 def check_low_confidence_fields(extracted: dict, threshold: float = 0.6) -> list[dict]:
     findings = []
     for doc_type, fields in extracted.items():
@@ -247,6 +272,7 @@ def run_all(extracted: dict, present_types: list[str], photo_assessments: list[d
     findings += check_estimate_against_photos(extracted, photo_assessments)
     findings += check_repairer(extracted)
     findings += check_claim_frequency(claims_history)
+    findings += check_unattended_vehicle_indicators(extracted)
     findings += check_low_confidence_fields(extracted)
     order = {CRITICAL: 0, WARNING: 1, INFO: 2}
     return sorted(findings, key=lambda f: order.get(f["severity"], 3))
@@ -260,7 +286,8 @@ def recommend(findings: list[dict]) -> str:
     # DAMAGE_LOCATION_MISMATCH is a fraud indicator in its own right (CIP-CLM-210 s2.1),
     # so it refers rather than merely asking the policyholder for more information.
     if codes & {"COVER_NOT_IN_FORCE", "EXCEEDS_AUTHORITY", "ESTIMATE_EVIDENCE_MISMATCH",
-                "REPAIRER_ENHANCED_REVIEW", "CLAIM_FREQUENCY", "DAMAGE_LOCATION_MISMATCH"}:
+                "REPAIRER_ENHANCED_REVIEW", "CLAIM_FREQUENCY",
+                "DAMAGE_LOCATION_MISMATCH", "CIRCUMSTANCE_INDICATOR_UNATTENDED_VEHICLE"}:
         return "refer"
     if codes & {"DATE_MISMATCH", "VEHICLE_MISMATCH"}:
         return "request_information"

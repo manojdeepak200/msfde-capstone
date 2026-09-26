@@ -218,7 +218,8 @@
           "ESTIMATE_EVIDENCE_MISMATCH",
           "EXCEEDS_AUTHORITY",
           "REPAIRER_ENHANCED_REVIEW",
-          "CLAIM_FREQUENCY"
+          "CLAIM_FREQUENCY",
+          "CIRCUMSTANCE_INDICATOR_UNATTENDED_VEHICLE"
         ],
         "recommendation": "refer",
         "notes": "The photographs show light cosmetic scuffing while the estimate of 6,940 covers door skin replacement, three panel blending and ADAS recalibration. The repairer is on the enhanced review list and this is the third claim in twelve months, all unattended-vehicle damage through the same repairer. Refer to the Special Investigations Unit; do not decline the claim in the workspace."

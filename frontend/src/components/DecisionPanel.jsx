@@ -51,6 +51,7 @@ export default function DecisionPanel({ claim, onDecided }) {
       <p className="muted">
         The workspace prepares and recommends. Approving, declining or paying a claim stays with
         authorised staff outside this tool.
+        {claim.verification_items?.length > 0 && ' Low-confidence critical fields are queued for handler confirmation.'}
       </p>
       <div className="row">
         <input

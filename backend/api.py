@@ -86,6 +86,12 @@ def list_claims() -> dict[str, Any]:
     return {"claims": claims, "processing": sorted(_processing)}
 
 
+@app.get("/api/claims/overview")
+def overview() -> dict[str, Any]:
+    # Expose the prepared-claim summary used by the dashboard overview cards.
+    return store.overview()
+
+
 @app.get("/api/claims/{claim_id}")
 def get_claim(claim_id: str) -> dict[str, Any]:
     record = store.get_claim(claim_id)

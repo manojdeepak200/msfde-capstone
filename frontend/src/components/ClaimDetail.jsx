@@ -36,6 +36,7 @@ export default function ClaimDetail({ claimId, onDecided }) {
   }
 
   const review = claim.review || {}
+  const verificationItems = claim.verification_items || review.verification_items || []
   const findings = [...(claim.findings || [])].sort(
     (a, b) => (SEVERITY_ORDER[a.severity] ?? 3) - (SEVERITY_ORDER[b.severity] ?? 3),
   )
@@ -87,6 +88,21 @@ export default function ClaimDetail({ claimId, onDecided }) {
               <p>{item.explanation}</p>
             </div>
           ))}
+        </section>
+      )}
+
+      {verificationItems.length > 0 && (
+        <section>
+          {/* Show the truly material values that need a handler to confirm before moving the claim forward. This keeps the workflow explicit rather than hidden in raw data. */}
+          <h3>Verification queue</h3>
+          <ul>
+            {verificationItems.map((item, i) => (
+              <li key={i}>
+                Confirm {item.field.replace(/_/g, ' ')} from {item.document.replace(/_/g, ' ')}
+                {' '}({item.confidence != null ? item.confidence.toFixed(2) : 'n/a'}): {String(item.value)}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

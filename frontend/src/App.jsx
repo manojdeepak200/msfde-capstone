@@ -6,6 +6,7 @@ export default function App() {
   const [claims, setClaims] = useState([])
   const [selected, setSelected] = useState(null)
   const [health, setHealth] = useState(null)
+  const [overview, setOverview] = useState(null)
   const [error, setError] = useState(null)
 
   const loadClaims = useCallback(async () => {
@@ -22,10 +23,21 @@ export default function App() {
     }
   }, [])
 
+  const loadOverview = useCallback(async () => {
+    try {
+      const response = await fetch('/api/claims/overview')
+      if (!response.ok) throw new Error(`overview: ${response.status}`)
+      setOverview(await response.json())
+    } catch {
+      setOverview(null)
+    }
+  }, [])
+
   useEffect(() => {
     fetch('/api/health').then(r => r.json()).then(setHealth).catch(() => {})
     loadClaims()
-  }, [loadClaims])
+    loadOverview()
+  }, [loadClaims, loadOverview])
 
   // While anything is processing, poll so the list updates on its own.
   useEffect(() => {
@@ -38,7 +50,7 @@ export default function App() {
   const processClaim = async (claimId) => {
     setClaims(cs => cs.map(c => (c.claim_id === claimId ? { ...c, status: 'processing' } : c)))
     await fetch(`/api/claims/${claimId}/process`, { method: 'POST' })
-    setTimeout(loadClaims, 3000)
+    setTimeout(() => { loadClaims(); loadOverview() }, 3000)
   }
 
   return (
@@ -59,6 +71,32 @@ export default function App() {
       </header>
 
       {error && <div className="banner error">Cannot reach the API: {error}</div>}
+
+      {overview && (
+        <section className="overview">
+          {/* Overview cards give the handler or operations lead a quick view of the prepared claim queue without drilling into every claim individually. */}
+          <div className="stat">
+            <span className="label">Prepared</span>
+            <strong>{overview.total_claims}</strong>
+          </div>
+          <div className="stat">
+            <span className="label">Proceed</span>
+            <strong>{overview.recommendation_mix.proceed}</strong>
+          </div>
+          <div className="stat">
+            <span className="label">Request info</span>
+            <strong>{overview.recommendation_mix.request_information}</strong>
+          </div>
+          <div className="stat">
+            <span className="label">Refer</span>
+            <strong>{overview.recommendation_mix.refer}</strong>
+          </div>
+          <div className="stat">
+            <span className="label">Verification</span>
+            <strong>{overview.awaiting_verification}</strong>
+          </div>
+        </section>
+      )}
 
       <div className="layout">
         <ClaimList

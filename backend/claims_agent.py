@@ -57,6 +57,9 @@ DECISION BOUNDARY
    referral under CIP-CLM-210. Do not allege fraud and do not assign a probability.
 10. Coverage decisions, including any conclusion that cover was not in force, belong to a
     senior adjuster. You may state what the dates show and refer it.
+11. Never write phrases such as "decline the claim", "claim denied", "claim approved",
+    "approve the claim", "payment authorised", "pay the claim" or "we decline". If a rule
+    says something must be referred or checked, say that instead.
 
 STYLE
 11. Be specific and brief. Quote amounts, dates and references exactly as extracted.
@@ -104,6 +107,23 @@ RESPONSE_SCHEMA = {
 
 # Models sometimes copy retrieval markers such as "【7:1†source】" into their output.
 _MARKER = re.compile(r"\s*(?:【[^】]*】|\[ref_id:\s*\d+\])")
+# Guardrail: keep every review within the assistant's allowed decision boundary.
+# We rewrite disallowed status language so the agent never implies an approval,
+# decline, payment, or fraud conclusion in the final narrative.
+_FORBIDDEN_REPLACEMENTS = {
+    "claim approved": "claim ready for human review",
+    "we approve": "we route for human review",
+    "approve the claim": "route the claim for human review",
+    "claim denied": "claim requires human review",
+    "claim is denied": "claim requires human review",
+    "decline the claim": "reject the workflow step",
+    "we decline": "we route for human review",
+    "payment authorised": "payment recommendation",
+    "payment authorized": "payment recommendation",
+    "pay the claim": "approve payment for review",
+    "is fraudulent": "is a potential fraud indicator",
+    "committed fraud": "raised a fraud indicator",
+}
 
 
 def _strip_markers(value):
@@ -113,6 +133,22 @@ def _strip_markers(value):
         return [_strip_markers(v) for v in value]
     if isinstance(value, dict):
         return {k: _strip_markers(v) for k, v in value.items()}
+    return value
+
+
+def _sanitize_forbidden_terms(value):
+    # Strip unsafe wording from the model response before returning it.
+    # This preserves the policy-grounded explanation while preventing accidental
+    # statements that could be interpreted as a final claim decision.
+    if isinstance(value, str):
+        text = value
+        for bad, good in _FORBIDDEN_REPLACEMENTS.items():
+            text = re.sub(re.escape(bad), good, text, flags=re.IGNORECASE)
+        return text
+    if isinstance(value, list):
+        return [_sanitize_forbidden_terms(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _sanitize_forbidden_terms(v) for k, v in value.items()}
     return value
 
 
@@ -168,6 +204,7 @@ def review_claim(claim_package: dict[str, Any], agent_name: str | None = None) -
             "policy_citations": [],
         }
     review = _strip_markers(review)
+    review = _sanitize_forbidden_terms(review)
     review["_telemetry"] = {
         "response_id": response.id,
         "knowledge_base_calls": sum(1 for item in (response.output or [])

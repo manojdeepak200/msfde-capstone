@@ -61,6 +61,7 @@ def save_claim(result: dict[str, Any]) -> str:
     """Store a prepared claim, replacing any previous preparation of the same claim."""
     claim_id = result["claim_id"]
     review = result.get("review") or {}
+    verification_items = result.get("verification_items", [])
     entity: dict[str, Any] = {
         "PartitionKey": PREPARED,
         "RowKey": claim_id,
@@ -69,6 +70,7 @@ def save_claim(result: dict[str, Any]) -> str:
         "documents_present": ",".join(result.get("documents_present", [])),
         "finding_count": len(result.get("findings", [])),
         "critical_count": sum(1 for f in result.get("findings", []) if f["severity"] == "critical"),
+        "verification_count": len(verification_items),
         "rule_recommendation": result.get("rule_recommendation", ""),
         "agent_recommendation": review.get("recommendation", ""),
         "summary": (review.get("summary") or "")[:_CHUNK],
@@ -80,6 +82,7 @@ def save_claim(result: dict[str, Any]) -> str:
     _pack(entity, "extracted", result.get("extracted", {}))
     _pack(entity, "photos", result.get("photo_assessments", []))
     _pack(entity, "review", review)
+    _pack(entity, "verification", verification_items)
 
     with _client(cfg.CLAIM_TABLE) as table:
         for partition in (PREPARED, *DECISIONS):
@@ -104,6 +107,7 @@ def list_claims(status: str | None = None) -> list[dict[str, Any]]:
             "documents_present": (entity.get("documents_present") or "").split(","),
             "finding_count": entity.get("finding_count"),
             "critical_count": entity.get("critical_count"),
+            "verification_count": entity.get("verification_count"),
             "rule_recommendation": entity.get("rule_recommendation"),
             "agent_recommendation": entity.get("agent_recommendation"),
             "summary": entity.get("summary"),
@@ -127,6 +131,7 @@ def get_claim(claim_id: str) -> dict[str, Any] | None:
                 "findings": _unpack(entity, "findings") or [],
                 "extracted": _unpack(entity, "extracted") or {},
                 "photo_assessments": _unpack(entity, "photos") or [],
+                "verification_items": _unpack(entity, "verification") or [],
                 "review": _unpack(entity, "review") or {},
                 "handler": entity.get("handler"),
                 "handler_note": entity.get("handler_note"),
@@ -156,6 +161,36 @@ def record_decision(claim_id: str, *, decision: str, handler: str, note: str = "
         })
         table.create_entity(entity)
         table.delete_entity(old_partition, claim_id)
+
+
+def overview() -> dict[str, Any]:
+    # Aggregate the prepared claim set into a simple operating view for a team lead.
+    # This is intentionally read-only and derived from stored claim preparation results.
+    with _client(cfg.CLAIM_TABLE) as table:
+        prepared = list(table.query_entities(f"PartitionKey eq '{PREPARED}'"))
+
+    total = len(prepared)
+    recommendation_mix = {label: 0 for label in ("proceed", "request_information", "refer")}
+    for entity in prepared:
+        rec = (entity.get("agent_recommendation") or "").strip()
+        if rec in recommendation_mix:
+            recommendation_mix[rec] += 1
+
+    average_findings = round(
+        sum(int(entity.get("finding_count") or 0) for entity in prepared) / total,
+        2,
+    ) if total else 0.0
+
+    pending_verification = sum(1 for entity in prepared if (entity.get("verification_count") or 0) > 0)
+    referral_rate = round(sum(1 for entity in prepared if (entity.get("agent_recommendation") == "refer")) / total, 2) if total else 0.0
+
+    return {
+        "total_claims": total,
+        "recommendation_mix": recommendation_mix,
+        "average_findings": average_findings,
+        "awaiting_verification": pending_verification,
+        "referral_rate": referral_rate,
+    }
 
 
 def counts() -> dict[str, int]:
