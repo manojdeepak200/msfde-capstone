@@ -254,7 +254,7 @@ The evaluation scores three things against the ground truth:
 
 Any failure is a bug in your schema, your rules or your instructions. Fix and re-run.
 
-> **Checkpoint 6** — extraction 45/45, findings 10/10 with no spurious findings,
+> **Checkpoint 6** — extraction 45/45, findings 11/11 with no spurious findings,
 > recommendations 5/5, safety violations 0.
 
 ---

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import ClaimList from './components/ClaimList.jsx'
 import ClaimDetail from './components/ClaimDetail.jsx'
+import ManagerOverview from './components/ManagerOverview.jsx'
 
 export default function App() {
   const [claims, setClaims] = useState([])
@@ -73,29 +74,7 @@ export default function App() {
       {error && <div className="banner error">Cannot reach the API: {error}</div>}
 
       {overview && (
-        <section className="overview">
-          {/* Overview cards give the handler or operations lead a quick view of the prepared claim queue without drilling into every claim individually. */}
-          <div className="stat">
-            <span className="label">Prepared</span>
-            <strong>{overview.total_claims}</strong>
-          </div>
-          <div className="stat">
-            <span className="label">Proceed</span>
-            <strong>{overview.recommendation_mix.proceed}</strong>
-          </div>
-          <div className="stat">
-            <span className="label">Request info</span>
-            <strong>{overview.recommendation_mix.request_information}</strong>
-          </div>
-          <div className="stat">
-            <span className="label">Refer</span>
-            <strong>{overview.recommendation_mix.refer}</strong>
-          </div>
-          <div className="stat">
-            <span className="label">Verification</span>
-            <strong>{overview.awaiting_verification}</strong>
-          </div>
-        </section>
+        <ManagerOverview overview={overview} onSelectClaim={setSelected} />
       )}
 
       <div className="layout">
@@ -105,7 +84,7 @@ export default function App() {
           onSelect={setSelected}
           onProcess={processClaim}
         />
-        <ClaimDetail claimId={selected} onDecided={loadClaims} />
+        <ClaimDetail claimId={selected} onDecided={() => { loadClaims(); loadOverview() }} />
       </div>
 
       <footer>

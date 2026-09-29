@@ -50,6 +50,9 @@ REVIEW_TABLE = f"review{ALIAS}"
 # Business rules (from the Contoso policy corpus - see CIP-CLM-200 and CIP-CLM-220)
 HANDLER_AUTHORITY_LIMIT = 5000.0
 CLAIM_FREQUENCY_THRESHOLD = 3                # claims in 12 months
+KNOWN_REPAIRERS = ["Apex Collision Center", "Northgate Bodyworks", "Riverside Auto Body",
+                   "Clear Lake Collision", "Corwin Street Motors", "Woodside Prestige Repairs",
+                   "Kestrel Motor Works"]
 ENHANCED_REVIEW_REPAIRERS = ["Apex Collision Center", "Northgate Bodyworks"]
 
 REQUIRED_DOCUMENTS = {

@@ -14,6 +14,7 @@ from azure.data.tables import TableClient
 from azure.identity import AzureCliCredential
 
 import config as cfg
+from analytics import build_operations_overview
 
 ENDPOINT = f"https://{cfg.STORAGE_ACCOUNT}.table.core.windows.net"
 
@@ -71,6 +72,7 @@ def save_claim(result: dict[str, Any]) -> str:
         "finding_count": len(result.get("findings", [])),
         "critical_count": sum(1 for f in result.get("findings", []) if f["severity"] == "critical"),
         "verification_count": len(verification_items),
+        "elapsed_seconds": float(result.get("elapsed_seconds") or 0),
         "rule_recommendation": result.get("rule_recommendation", ""),
         "agent_recommendation": review.get("recommendation", ""),
         "summary": (review.get("summary") or "")[:_CHUNK],
@@ -83,6 +85,7 @@ def save_claim(result: dict[str, Any]) -> str:
     _pack(entity, "photos", result.get("photo_assessments", []))
     _pack(entity, "review", review)
     _pack(entity, "verification", verification_items)
+    _pack(entity, "claims_history", result.get("claims_history", []))
 
     with _client(cfg.CLAIM_TABLE) as table:
         for partition in (PREPARED, *DECISIONS):
@@ -164,33 +167,22 @@ def record_decision(claim_id: str, *, decision: str, handler: str, note: str = "
 
 
 def overview() -> dict[str, Any]:
-    # Aggregate the prepared claim set into a simple operating view for a team lead.
-    # This is intentionally read-only and derived from stored claim preparation results.
+    # Derive operational metrics from all processed claims, including handler-reviewed rows.
     with _client(cfg.CLAIM_TABLE) as table:
-        prepared = list(table.query_entities(f"PartitionKey eq '{PREPARED}'"))
+        entities = list(table.list_entities())
 
-    total = len(prepared)
-    recommendation_mix = {label: 0 for label in ("proceed", "request_information", "refer")}
-    for entity in prepared:
-        rec = (entity.get("agent_recommendation") or "").strip()
-        if rec in recommendation_mix:
-            recommendation_mix[rec] += 1
-
-    average_findings = round(
-        sum(int(entity.get("finding_count") or 0) for entity in prepared) / total,
-        2,
-    ) if total else 0.0
-
-    pending_verification = sum(1 for entity in prepared if (entity.get("verification_count") or 0) > 0)
-    referral_rate = round(sum(1 for entity in prepared if (entity.get("agent_recommendation") == "refer")) / total, 2) if total else 0.0
-
-    return {
-        "total_claims": total,
-        "recommendation_mix": recommendation_mix,
-        "average_findings": average_findings,
-        "awaiting_verification": pending_verification,
-        "referral_rate": referral_rate,
-    }
+    claims = [{
+        "claim_id": entity.get("RowKey"),
+        "status": entity.get("status"),
+        "agent_recommendation": entity.get("agent_recommendation"),
+        "finding_count": entity.get("finding_count"),
+        "verification_count": entity.get("verification_count"),
+        "elapsed_seconds": entity.get("elapsed_seconds"),
+        "findings": _unpack(entity, "findings") or [],
+        "extracted": _unpack(entity, "extracted") or {},
+        "claims_history": _unpack(entity, "claims_history") or [],
+    } for entity in entities if entity.get("RowKey")]
+    return build_operations_overview(claims)
 
 
 def counts() -> dict[str, int]:

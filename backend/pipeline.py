@@ -22,6 +22,7 @@ import claims_agent
 import config as cfg
 import validation
 import vision
+from analytics import parse_claim_history_text
 from content_understanding import ContentUnderstandingClient
 
 def _find_repo_dir(name: str) -> pathlib.Path:
@@ -66,7 +67,7 @@ def ensure_analyzers(only: list[str] | None = None) -> None:
 
 
 def parse_claims_history(pdf_path: pathlib.Path) -> list[dict[str, Any]]:
-    """Read the claim references out of the claims history PDF.
+    """Read dated claim references and repairers from the history PDF.
 
     Uses pypdf so this works the same on Windows, macOS and Linux. Shelling out to
     pdftotext would silently return nothing on a Windows lab VM, and the claim frequency
@@ -78,8 +79,7 @@ def parse_claims_history(pdf_path: pathlib.Path) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001 - history is optional, but say so
         print(f"  ! could not read {pdf_path.name}: {exc}")
         return []
-    rows = re.findall(r"(CLM-\d{4}-\d+)", text)
-    return [{"reference": r} for r in dict.fromkeys(rows)]
+    return parse_claim_history_text(text, cfg.KNOWN_REPAIRERS)
 
 
 def build_verification_queue(extracted: dict[str, Any], threshold: float = 0.8) -> list[dict[str, Any]]:
@@ -162,6 +162,7 @@ def process_claim(claim_dir: pathlib.Path, agent_name: str | None = None,
                       for doc, fields in extracted.items()},
         "photo_assessments": photo_assessments,
         "claims_history_count": len(claims_history),
+        "claims_history": claims_history,
         "verification_items": verification_items,
         "findings": findings,
         "rule_recommendation": rule_recommendation,
@@ -170,7 +171,8 @@ def process_claim(claim_dir: pathlib.Path, agent_name: str | None = None,
     # ---- summarise with the grounded agent
     review = None
     if not skip_agent:
-        review = claims_agent.review_claim(package, agent_name=agent_name)
+        review_package = {key: value for key, value in package.items() if key != "claims_history"}
+        review = claims_agent.review_claim(review_package, agent_name=agent_name)
 
     # Basic cost and latency telemetry for operations reporting. This is a rough,
     # explainable estimate used to compare processing options without making a claim decision.

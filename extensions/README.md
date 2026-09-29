@@ -5,6 +5,13 @@ Your workspace prepares five claims correctly. These challenges take it from *wo
 
 Each is independent. Pick what interests you — nobody is expected to do all seven.
 
+## Implemented in this workspace
+
+- **F3 — Cross-claim patterns:** the manager overview reports repeated VINs/plates across distinct policy numbers and repeat repairers present in supplied claim-history evidence. Results are observations with claim references, not fraud conclusions.
+- **F7 — Batch metrics:** the operations overview aggregates recommendation mix, common findings, missing documents, estimate bands, preparation time, and recommendation cohorts. Claim links let a manager inspect the records behind each figure.
+
+Run the offline aggregation tests from `backend/` with `python -m unittest test_analytics.py`. These capabilities use fictional training data; the cross-claim view is not access-scoped for production use.
+
 | # | Challenge | Difficulty | Rough time | What it proves |
 |---|---|---|---|---|
 | [F1](F1-new-evidence-type.md) | Handle a new document type end to end | Moderate | 60 min | The pipeline extends, rather than being a fixed demo |
@@ -25,7 +32,7 @@ cd ..\eval
 python evaluate.py
 ```
 
-Extraction 45/45, findings 10/10, recommendations 5/5, safety violations 0 — that is your
+Extraction 45/45, findings 11/11, recommendations 5/5, safety violations 0 — that is your
 baseline, and it must still hold after your change. If you add claims or rules, extend the
 ground truth with them; a check that scores your own new work as correct by definition proves
 nothing.

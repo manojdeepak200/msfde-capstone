@@ -63,7 +63,8 @@ def check_completeness(extracted: dict, present_types: list[str]) -> list[dict]:
             "MISSING_DOCUMENT", CRITICAL,
             f"A {document.replace('_', ' ')} is required for a {loss_type.lower()} claim and is not on file "
             f"(CIP-CLM-200 section 1).",
-            [_ev("claim_form", "loss_type", loss_type)],
+            [_ev("claim_form", "loss_type", loss_type),
+             _ev(document, "document_status", "missing")],
         ))
     return findings
 

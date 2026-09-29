@@ -38,6 +38,26 @@ header h1 { margin: 0; font-size: 22px; color: var(--brand); letter-spacing: -0.
   display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 12px;
   margin: 16px 0 18px;
 }
+.manager-dashboard { margin: 16px 0 20px; }
+.manager-dashboard .overview { margin: 0 0 12px; }
+.metric-trace { margin-top: 3px; font-size: 10px; }
+.metric-trace summary { color: var(--brand); font-size: 10px; text-transform: none; }
+.metric-trace .claim-links { margin-top: 5px; }
+.manager-insights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.manager-insight { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.manager-insight h2 { margin: 0 0 10px; color: var(--brand); font-size: 12px; text-transform: uppercase; }
+.insight-row { padding: 7px 0; border-top: 1px solid var(--line); display: grid; gap: 5px; }
+.insight-row > div { display: flex; justify-content: space-between; gap: 8px; }
+.insight-row strong { font-size: 12px; text-transform: capitalize; }
+.insight-row .muted, .queue-trace { font-size: 11px; }
+.claim-links { display: flex; flex-wrap: wrap; gap: 5px; }
+button.claim-link { padding: 2px 5px; border: 1px solid var(--line); background: #f1f5f7; color: var(--brand); font-size: 10px; }
+.pattern-insights { margin-top: 12px; }
+.pattern-row { display: grid; gap: 4px; border-top: 1px solid var(--line); padding: 9px 0; font-size: 12px; }
+.governance-note { margin: 8px 0 0; }
+.queue-trace { display: flex; justify-content: space-between; gap: 12px; padding: 8px 2px; color: var(--muted); }
+.recommendation-trace { display: flex; flex-wrap: wrap; gap: 10px; }
+.recommendation-trace > span { display: inline-flex; align-items: center; gap: 4px; }
 .stat {
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
   padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;
@@ -134,4 +154,12 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: cen
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
+  .overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .manager-insights { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .app { padding: 14px 12px 44px; }
+  .overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .queue-trace { flex-direction: column; }
 }

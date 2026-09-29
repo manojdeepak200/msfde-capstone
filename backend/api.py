@@ -88,7 +88,7 @@ def list_claims() -> dict[str, Any]:
 
 @app.get("/api/claims/overview")
 def overview() -> dict[str, Any]:
-    # Expose the prepared-claim summary used by the dashboard overview cards.
+    # Expose traceable operating metrics and observation-only cross-claim patterns.
     return store.overview()
 
 
